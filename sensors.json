@@ -1,0 +1,18 @@
+{
+  "sensors": {
+    "D2:AB:29:51:24:BD": {
+      "label": "Left arm",
+      "name": "MetaWear",
+      "selected": true
+    },
+    "DD:4D:77:40:9A:15": {
+      "label": "Right arm",
+      "name": "MetaWear",
+      "selected": true
+    }
+  },
+  "movements": [
+    "drums",
+    "fighting"
+  ]
+}

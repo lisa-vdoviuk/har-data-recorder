@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HAR Project Data Recorder</title>
+<style>
+:root{
+  --bg:#0b0e14; --panel:#131822; --soft:#192030; --line:#262f40; --ink:#e6ebf3; --muted:#8a95a9; --field:#0e121a;
+  --blue:#5b7bff; --blue-soft:#1a2450; --rec:#ff5a6e; --rec-soft:#3b1a22; --ok:#34d399; --ok-soft:#0f2f26;
+  --warn:#f2b84b; --warn-soft:#3a2e12; --live-bg:#080b10; --btn-hover:#34405a; --toast:#2a3347;
+  --font:"Avenir Next","Segoe UI","Helvetica Neue",system-ui,sans-serif;
+  --num:"SF Mono","Cascadia Mono","Roboto Mono",ui-monospace,monospace;
+}
+:root[data-theme="light"]{
+  --bg:#eceef2; --panel:#fff; --soft:#f5f6f9; --line:#dde1e8; --ink:#1a2233; --muted:#667186; --field:#fff;
+  --blue:#2a4bff; --blue-soft:#e6eaff; --rec:#df3149; --rec-soft:#fde8eb; --ok:#14a06b; --ok-soft:#dff5ec;
+  --warn:#b7791f; --warn-soft:#fdf1d8; --live-bg:#1a2233; --btn-hover:#c9cfda; --toast:#1a2233;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+:root[data-theme="light"]{color-scheme:light}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.01em}
+.mono{font-family:var(--num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 28px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand h1{font-size:19px}
+.hstat{display:flex;gap:10px;align-items:center}
+
+main{display:grid;grid-template-columns:minmax(330px,400px) 1fr;gap:20px;padding:0 28px 40px;max-width:1500px;margin:0 auto;align-items:start}
+@media(max-width:980px){main{grid-template-columns:1fr;padding:0 14px 30px}header{padding:14px}}
+.col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.panel-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.panel-h h2{font-size:17px}
+
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:7px 13px;font-weight:550;transition:background .12s,border-color .12s}
+.btn:hover{background:var(--soft);border-color:var(--btn-hover)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{filter:brightness(1.12)}
+.btn.danger{color:var(--rec)}
+.btn.danger:hover{background:var(--rec-soft);border-color:var(--rec)}
+.btn.sm{padding:4px 10px;font-size:13px;border-radius:8px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--soft)}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:2px 9px;border-radius:99px;background:var(--soft);color:var(--muted)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.err{background:var(--rec-soft);color:var(--rec)}
+.pill.blue{background:var(--blue-soft);color:var(--blue)}
+
+/* ----- sensors ----- */
+.add{display:flex;gap:8px;margin-bottom:14px}
+.add input{flex:1;min-width:0}
+input[type=text],input[type=number],select{border:1px solid var(--line);background:var(--field);border-radius:9px;padding:8px 11px;width:100%}
+input:focus,select:focus{border-color:var(--blue);outline:none;box-shadow:0 0 0 3px var(--blue-soft)}
+.sensors{display:flex;flex-direction:column;gap:10px}
+.sensor{border:1px solid var(--line);border-left:5px solid var(--c);border-radius:11px;padding:12px 14px;background:var(--panel)}
+.sensor.off{background:var(--soft)}
+.sensor.identifying{animation:pulse .6s ease-in-out infinite alternate}
+@keyframes pulse{to{background:color-mix(in srgb,var(--c) 18%,var(--panel))}}
+.s-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.s-title{font-weight:650;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s-title.none{color:var(--muted);font-weight:500}
+.s-sub{font-size:12.5px;color:var(--muted)}
+.s-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.chip{border:1px solid var(--line);background:var(--field);border-radius:99px;padding:2px 10px;font-size:12.5px}
+.chip:hover{border-color:var(--c);background:color-mix(in srgb,var(--c) 16%,var(--panel))}
+.chip.on{background:var(--c);border-color:var(--c);color:#fff}
+.check{display:flex;gap:7px;align-items:center;font-size:13.5px;margin-left:auto;cursor:pointer}
+.check input{width:16px;height:16px;accent-color:var(--blue)}
+.err-t{color:var(--rec);font-size:13px;margin-top:8px}
+.spin{width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:rot .7s linear infinite;display:inline-block}
+@keyframes rot{to{transform:rotate(360deg)}}
+.empty{border:1.5px dashed var(--line);border-radius:11px;padding:22px;text-align:center;color:var(--muted)}
+
+/* ----- record ----- */
+.field{display:flex;flex-direction:column;gap:6px}
+.field>label,.lab{font-size:13.5px;font-weight:600;color:var(--muted)}
+.big-in{font-size:20px;padding:12px 14px;font-weight:600}
+.row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-top:18px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--field)}
+.seg button{border:0;background:none;padding:8px 14px;border-right:1px solid var(--line);font-weight:550}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:var(--soft)}
+.seg button.on{background:var(--blue);color:#fff}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:6px}
+@media(max-width:700px){.grid4{grid-template-columns:repeat(2,1fr)}}
+.group-t{font-size:13.5px;font-weight:600;margin-top:18px}
+.who{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.who span{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:3px 11px 3px 8px;font-size:13px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none;display:inline-block}
+.go{display:flex;align-items:center;gap:16px;margin-top:22px;flex-wrap:wrap}
+.rec-btn{display:inline-flex;align-items:center;gap:10px;background:var(--rec);color:#fff;border:0;border-radius:12px;padding:15px 30px;font-size:17px;font-weight:650}
+.rec-btn:hover{filter:brightness(1.1)}
+.rec-btn:disabled{background:var(--soft);color:var(--muted);cursor:not-allowed}
+.rec-btn .o{width:13px;height:13px;border-radius:50%;background:#fff}
+.stop-btn{background:#2f3a50}.stop-btn:hover{background:#3d4a66;filter:none}
+.stop-btn .o{border-radius:3px}
+
+.live{border-radius:12px;background:var(--live-bg);border:1px solid var(--line);color:#fff;padding:22px 24px;margin:-2px 0 0}
+.live .t{font-size:clamp(46px,8vw,84px);line-height:1;font-weight:600;letter-spacing:-.02em}
+.live .m{font-size:18px;opacity:.85;margin-bottom:6px}
+.live .bar{height:6px;border-radius:3px;background:#ffffff26;margin:16px 0 0;overflow:hidden}
+.live .bar i{display:block;height:100%;background:#fff;transition:width .4s linear}
+.live .rd{display:inline-block;width:11px;height:11px;border-radius:50%;background:#ff4b62;margin-right:9px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.2}}
+.live .cd{color:#9db0ff}
+.srow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #ffffff1f;font-size:14px}
+.srow:first-child{border-top:0}
+.srow .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow .st{opacity:.85;font-size:13.5px}
+.live .dot{box-shadow:0 0 0 2px #fff3}
+.live-actions{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:16px;flex-wrap:wrap}
+
+/* ----- recordings ----- */
+.session{border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.s-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px;background:var(--soft)}
+.s-head h3{font-size:17px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.tag{font-size:12.5px;background:var(--field);border:1px solid var(--line);border-radius:6px;padding:0 7px;color:var(--muted)}
+.frow{display:grid;grid-template-columns:minmax(150px,1.4fr) 1fr 1fr auto;gap:10px;align-items:center;padding:10px 16px;border-top:1px solid var(--line)}
+@media(max-width:700px){.frow{grid-template-columns:1fr 1fr}}
+.fname{display:flex;align-items:center;gap:9px;min-width:0}
+.fname b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acts{display:flex;gap:6px;justify-content:flex-end}
+
+.toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,20px);background:var(--toast);color:#fff;padding:11px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:.25s;z-index:9;max-width:90vw;font-weight:550}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.err{background:var(--rec)}.toast.warn{background:#9a6a12}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.pbar{height:8px;border-radius:4px;background:var(--soft);overflow:hidden;border:1px solid var(--line)}
+.pbar i{display:block;height:100%;background:var(--blue);transition:width .3s}
+.pbar.ind i{width:30%!important;animation:ind 1.1s ease-in-out infinite alternate}
+@keyframes ind{from{margin-left:0}to{margin-left:70%}}
+.pbar.done i{background:var(--ok)}.pbar.err i{background:var(--rec)}
+.dl-row{display:grid;grid-template-columns:minmax(120px,1fr) 2fr minmax(170px,1.2fr);gap:12px;align-items:center;padding:6px 0;font-size:14px}
+@media(max-width:700px){.dl-row{grid-template-columns:1fr 1fr}}
+.bat{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);background:none;border:0;padding:2px 4px;border-radius:6px}
+.bat:hover{background:var(--soft)}
+.bat i{width:22px;height:11px;border:1.5px solid currentColor;border-radius:3px;position:relative;display:inline-block;padding:1px}
+.bat i::after{content:"";position:absolute;right:-4px;top:2px;width:2px;height:4px;background:currentColor;border-radius:0 1px 1px 0}
+.bat b{display:block;height:100%;background:var(--ok);border-radius:1px}
+.bat.mid b{background:var(--warn)}.bat.low b{background:var(--rec)}
+.lp canvas{width:100%;height:150px;display:block;background:var(--field);border:1px solid var(--line);border-radius:10px}
+.ch-head{display:flex;justify-content:space-between;align-items:baseline;margin:16px 0 6px;gap:10px;flex-wrap:wrap}
+.lg{font-weight:600;font-size:13px}.lg.x{color:#ff6b81}.lg.y{color:#34d399}.lg.z{color:#5b9bff}
+</style>
+<script>document.documentElement.dataset.theme=localStorage.getItem("mwr_theme")||"dark"</script>
+</head>
+<body>
+<header>
+  <div class="brand"><h1>HAR Project Data Recorder</h1></div>
+  <div style="display:flex;gap:12px;align-items:center"><div class="hstat" id="hstat"></div><button class="btn sm" id="themeBtn"></button></div>
+</header>
+
+<main>
+  <!-- ===== Sensors ===== -->
+  <section class="panel" aria-labelledby="h-sens">
+    <div class="panel-h">
+      <h2 id="h-sens">Sensors</h2>
+      <button class="btn primary" id="scanBtn">Find sensors</button>
+    </div>
+    <div class="add">
+      <input type="text" id="macIn" placeholder="Add by MAC: F0:F3:20:73:56:3A" spellcheck="false" aria-label="MAC address">
+      <button class="btn" id="macAdd">Add</button>
+    </div>
+    <div class="sensors" id="sensorList"></div>
+  </section>
+
+  <div class="col">
+    <!-- ===== Record ===== -->
+    <section class="panel" aria-labelledby="h-rec">
+      <div class="panel-h"><h2 id="h-rec">New recording</h2><span id="recHint" class="small muted"></span></div>
+
+      <div id="liveBox" hidden></div>
+
+      <div id="setup">
+        <div class="row" style="margin-top:0">
+          <div class="field" style="width:190px">
+            <label for="subject">Subject ID</label>
+            <input type="text" class="big-in" id="subject" placeholder="S01" autocomplete="off" maxlength="40">
+          </div>
+          <div class="field" style="flex:1;min-width:240px">
+            <label for="movement">Activity (label)</label>
+            <input type="text" class="big-in" id="movement" placeholder="e.g. walking, squat, climbing stairs" autocomplete="off">
+            <div class="chips" id="moveChips" style="margin-top:2px"></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <span class="lab">Duration</span>
+            <div class="seg" id="durSeg">
+              <button data-d="5">5 s</button><button data-d="10">10 s</button><button data-d="30">30 s</button>
+              <button data-d="60">1 min</button><button data-d="0">No limit</button>
+            </div>
+          </div>
+          <div class="field" style="width:120px">
+            <label for="durCustom">Custom (s)</label>
+            <input type="number" id="durCustom" min="1" step="1" placeholder="—">
+          </div>
+          <div class="field">
+            <span class="lab">Countdown before start</span>
+            <div class="seg" id="cdSeg">
+              <button data-c="0">None</button><button data-c="3">3 s</button><button data-c="5">5 s</button><button data-c="10">10 s</button>
+            </div>
+          </div>
+        </div>
+        <div class="small muted" id="durNote" style="margin-top:8px"></div>
+        <div class="row" style="margin-top:14px">
+          <div class="field">
+            <span class="lab">After each take</span>
+            <div class="seg" id="trSeg"><button data-t="later">Keep on sensors, download later</button><button data-t="now">Download now</button></div>
+          </div>
+        </div>
+        <div class="small muted" id="trNote" style="margin-top:8px"></div>
+
+        <div class="group-t">Channels and sensor settings</div>
+        <div class="row" style="margin-top:8px;gap:22px">
+          <label class="check" style="margin:0"><input type="checkbox" id="useAcc"> Accelerometer</label>
+          <label class="check" style="margin:0"><input type="checkbox" id="useGyro"> Gyroscope</label>
+          <label class="check" style="margin:0"><input type="checkbox" id="metaCols"> Extra metadata columns in CSV</label>
+        </div>
+        <div class="grid4">
+          <div class="field"><label for="acc_odr">Accelerometer rate</label><select id="acc_odr"></select></div>
+          <div class="field"><label for="acc_range">Accelerometer range</label><select id="acc_range"></select></div>
+          <div class="field"><label for="gyro_odr">Gyroscope rate</label><select id="gyro_odr"></select></div>
+          <div class="field"><label for="gyro_range">Gyroscope range</label><select id="gyro_range"></select></div>
+        </div>
+
+        <div class="group-t">Recording from</div>
+        <div class="who" id="who"></div>
+
+        <div class="go">
+          <button class="rec-btn" id="startBtn"><span class="o"></span>Start recording</button>
+          <span class="small muted" id="why"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Live preview ===== -->
+    <section class="panel lp" aria-labelledby="h-lp">
+      <div class="panel-h">
+        <div><h2 id="h-lp">Live preview</h2><div class="small muted">Streams one sensor over Bluetooth to check the signal. Nothing is saved.</div></div>
+        <button class="btn primary" id="lpBtn">Start preview</button>
+      </div>
+      <div class="row" style="margin-top:0;gap:14px;align-items:flex-end">
+        <div class="field" style="min-width:200px;flex:1"><label for="lpSensor">Sensor</label><select id="lpSensor"></select></div>
+        <div class="field" style="width:120px"><label for="lpRate">Rate</label><select id="lpRate"><option value="25">25 Hz</option><option value="50" selected>50 Hz</option><option value="100">100 Hz</option></select></div>
+        <label class="check" style="margin:0 0 9px"><input type="checkbox" id="lpAcc" checked> Accelerometer</label>
+        <label class="check" style="margin:0 0 9px"><input type="checkbox" id="lpGyro" checked> Gyroscope</label>
+      </div>
+      <div id="lpCharts" hidden>
+        <div class="ch-head"><b>Accelerometer <span class="muted small">g</span></b><span class="mono small" id="lpAccVal"></span></div><canvas id="cAcc"></canvas>
+        <div class="ch-head"><b>Gyroscope <span class="muted small">°/s</span></b><span class="mono small" id="lpGyroVal"></span></div><canvas id="cGyro"></canvas>
+        <div class="small muted" id="lpStat" style="margin-top:8px"></div>
+      </div>
+    </section>
+
+    <!-- ===== Pending ===== -->
+    <section class="panel" id="pendingPanel" hidden></section>
+
+    <!-- ===== Dashboard ===== -->
+    <section class="panel" aria-labelledby="h-list">
+      <div class="panel-h">
+        <h2 id="h-list">Recordings</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="small muted" id="listCount"></span>
+          <button class="btn" id="zipAll">Download all (ZIP)</button>
+        </div>
+      </div>
+      <div id="recList"></div>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const LABELS = ["Right arm","Left arm","Right wrist","Left wrist","Right leg","Left leg","Waist","Chest","Back","Head"];
+const hue = mac => { let h = 0; for (const c of mac) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+const color = mac => `hsl(${hue(mac)} 62% 46%)`;
+const fmtT = s => { s = Math.max(0, s); const m = Math.floor(s / 60); return String(m).padStart(2,"0") + ":" + (s % 60).toFixed(1).padStart(4,"0"); };
+const fmtSize = b => b > 1048576 ? (b/1048576).toFixed(1)+" MB" : Math.max(1, Math.round(b/1024))+" KB";
+
+let liveTimer = null, lpSig = "", pendSig = "", lastScanErr = null, S = null, recs = [], sig = "", liveSig = "", lastNoticeId = null, lastPhase = "idle", whoSig = "";
+const prefs = Object.assign({ subject:"S01", use_acc:true, use_gyro:true, meta_cols:true, lpSensor:"", movement:"", duration:10, countdown:3, transfer:"later", acc_odr:100, acc_range:8, gyro_odr:100, gyro_range:2000 },
+  JSON.parse(localStorage.getItem("mwr_prefs") || "{}"));
+const savePrefs = () => localStorage.setItem("mwr_prefs", JSON.stringify(prefs));
+
+async function api(path, method = "GET", body) {
+  const r = await fetch(path, { method, headers: {"Content-Type":"application/json"}, body: body ? JSON.stringify(body) : undefined });
+  let j = {}; try { j = await r.json(); } catch {}
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+let toastT;
+function toast(text, level = "ok") {
+  const t = $("#toast"); t.textContent = text; t.className = "toast show " + level;
+  clearTimeout(toastT); toastT = setTimeout(() => t.className = "toast " + level, 4200);
+}
+const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message, "err"); } };
+
+/* ---------------- theme ---------------- */
+function paintTheme() { $("#themeBtn").textContent = document.documentElement.dataset.theme === "light" ? "Dark mode" : "Light mode"; }
+$("#themeBtn").onclick = () => {
+  const t = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  document.documentElement.dataset.theme = t; localStorage.setItem("mwr_theme", t); paintTheme();
+};
+paintTheme();
+
+/* ---------------- sensors ---------------- */
+function statusPill(s) {
+  if (s.state === "connecting") return `<span class="pill blue"><span class="spin"></span>Connecting</span>`;
+  if (s.state === "connected") return `<span class="pill ok">Connected</span>`;
+  if (s.state === "error") return `<span class="pill err">Error</span>`;
+  return s.nearby ? `<span class="pill warn">In range</span>` : `<span class="pill">Not in range</span>`;
+}
+function batteryHtml(s) {
+  const b = s.battery;
+  if (!b) return `<button class="bat" data-act="battery" title="Read battery">Battery: reading…</button>`;
+  const cls = b.charge < 20 ? "low" : b.charge < 45 ? "mid" : "";
+  return `<button class="bat ${cls}" data-act="battery" title="${b.voltage} mV. Click to refresh"><i><b style="width:${Math.max(4, b.charge)}%"></b></i>${b.charge}% · ${(b.voltage / 1000).toFixed(2)} V</button>`;
+}
+function sensorCard(s, busy) {
+  const on = s.state === "connected";
+  const c = color(s.mac);
+  const title = s.label ? `<div class="s-title">${esc(s.label)}</div>` : `<div class="s-title none">No label</div>`;
+  let body = "";
+  if (on) {
+    body = `
+      <input type="text" data-label value="${esc(s.label)}" placeholder="Where it is worn: right arm, waist…" maxlength="40" style="margin-top:10px">
+      <div class="chips">${LABELS.map(l => `<button class="chip ${l === s.label ? "on" : ""}" data-act="chip" data-v="${esc(l)}">${l}</button>`).join("")}</div>
+      <div class="s-row" style="margin-top:8px">${batteryHtml(s)}</div>
+      <div class="s-row">
+        <button class="btn sm" data-act="identify" ${busy || s.identifying ? "disabled" : ""}>${s.identifying ? "Vibrating…" : "Identify (vibrate)"}</button>
+        <button class="btn sm ghost" data-act="disconnect" ${busy ? "disabled" : ""}>Disconnect</button>
+        <label class="check"><input type="checkbox" data-act="select" ${s.selected ? "checked" : ""}>In recording</label>
+      </div>`;
+  } else {
+    body = `<div class="s-row">
+      <button class="btn sm primary" data-act="connect" ${busy || s.state === "connecting" ? "disabled" : ""}>Connect</button>
+      <button class="btn sm ghost" data-act="forget" ${busy ? "disabled" : ""}>Remove</button></div>`;
+  }
+  const rssi = s.nearby && s.rssi != null ? ` ${s.rssi} dBm` : "";
+  return `<div class="sensor ${on ? "" : "off"} ${s.identifying ? "identifying" : ""}" data-mac="${s.mac}" style="--c:${c}">
+    <div class="s-top"><div style="min-width:0">${title}<div class="s-sub mono">${s.mac}${rssi}</div></div>${statusPill(s)}</div>
+    ${s.error && s.state !== "connected" ? `<div class="err-t">${esc(s.error)}</div>` : ""}${body}</div>`;
+}
+function renderSensors() {
+  const busy = S.recording.phase !== "idle";
+  const list = $("#sensorList");
+  const ae = document.activeElement;
+  let focus = null;
+  if (ae && ae.matches("[data-label]")) focus = { mac: ae.closest("[data-mac]").dataset.mac, v: ae.value, p: ae.selectionStart };
+  list.innerHTML = S.sensors.length
+    ? S.sensors.map(s => sensorCard(s, busy)).join("")
+    : `<div class="empty">No sensors yet.<br>Click “Find sensors” or add a MAC address manually.</div>`;
+  if (focus) {
+    const inp = list.querySelector(`[data-mac="${focus.mac}"] [data-label]`);
+    if (inp) { inp.value = focus.v; inp.focus(); inp.setSelectionRange(focus.p, focus.p); }
+  }
+}
+$("#sensorList").addEventListener("click", guard(async e => {
+  const b = e.target.closest("[data-act]"); if (!b || b.type === "checkbox") return;
+  const mac = b.closest("[data-mac]").dataset.mac, act = b.dataset.act;
+  if (act === "chip") await api(`/api/sensors/${mac}/label`, "POST", { label: b.dataset.v });
+  else if (act === "forget") await api(`/api/sensors/${mac}`, "DELETE");
+  else await api(`/api/sensors/${mac}/${act}`, "POST");
+  await refresh();
+}));
+$("#sensorList").addEventListener("change", guard(async e => {
+  const mac = e.target.closest("[data-mac]")?.dataset.mac; if (!mac) return;
+  if (e.target.matches("[data-label]")) await api(`/api/sensors/${mac}/label`, "POST", { label: e.target.value });
+  if (e.target.matches('[data-act="select"]')) await api(`/api/sensors/${mac}/select`, "POST", { selected: e.target.checked });
+  await refresh();
+}));
+$("#sensorList").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches("[data-label]")) e.target.blur(); });
+$("#scanBtn").onclick = guard(async () => { await api("/api/scan", "POST"); await refresh(); });
+$("#macAdd").onclick = guard(async () => {
+  await api("/api/sensors", "POST", { mac: $("#macIn").value }); $("#macIn").value = ""; await refresh();
+});
+$("#macIn").addEventListener("keydown", e => { if (e.key === "Enter") $("#macAdd").click(); });
+
+/* ---------------- recording setup ---------------- */
+function initSetup() {
+  for (const k of ["acc_odr","acc_range","gyro_odr","gyro_range"]) {
+    const unit = { acc_odr:"Hz", acc_range:"g", gyro_odr:"Hz", gyro_range:"°/s" }[k];
+    const pm = k.endsWith("range") ? "±" : "";
+    $("#"+k).innerHTML = S.options[k].map(v => `<option value="${v}">${pm}${v} ${unit}</option>`).join("");
+    $("#"+k).value = S.options[k].includes(+prefs[k]) ? prefs[k] : S.options[k][3];
+    $("#"+k).onchange = e => { prefs[k] = +e.target.value; savePrefs(); };
+  }
+  $("#subject").value = prefs.subject;
+  $("#subject").oninput = e => { prefs.subject = e.target.value; savePrefs(); renderRecordStatic(); };
+  for (const [id, k] of [["useAcc","use_acc"],["useGyro","use_gyro"],["metaCols","meta_cols"]]) {
+    $("#"+id).checked = !!prefs[k];
+    $("#"+id).onchange = e => { prefs[k] = e.target.checked; savePrefs(); paintChannels(); renderRecordStatic(); };
+  }
+  paintChannels();
+  $("#movement").value = prefs.movement;
+  $("#movement").oninput = e => { prefs.movement = e.target.value; savePrefs(); renderRecordStatic(); };
+  $("#durSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; prefs.duration = +b.dataset.d || null; $("#durCustom").value = ""; savePrefs(); paintSeg(); };
+  $("#durCustom").oninput = e => { const v = +e.target.value; prefs.duration = v > 0 ? v : prefs.duration; savePrefs(); paintSeg(true); };
+  $("#cdSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; prefs.countdown = +b.dataset.c; savePrefs(); paintSeg(); };
+  $("#moveChips").onclick = e => { const b = e.target.closest("button"); if (!b) return; $("#movement").value = prefs.movement = b.dataset.v; savePrefs(); renderRecordStatic(); };
+  $("#trSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; prefs.transfer = b.dataset.t; savePrefs(); paintSeg(); };
+  paintSeg();
+}
+function paintChannels() {
+  $("#acc_odr").disabled = $("#acc_range").disabled = !prefs.use_acc;
+  $("#gyro_odr").disabled = $("#gyro_range").disabled = !prefs.use_gyro;
+}
+function paintSeg(custom) {
+  document.querySelectorAll("#durSeg button").forEach(b => b.classList.toggle("on", !custom && (+b.dataset.d || null) === prefs.duration));
+  document.querySelectorAll("#cdSeg button").forEach(b => b.classList.toggle("on", +b.dataset.c === prefs.countdown));
+  document.querySelectorAll("#trSeg button").forEach(b => b.classList.toggle("on", b.dataset.t === prefs.transfer));
+  $("#trNote").textContent = prefs.transfer === "later"
+    ? "Record as many takes as you like back to back. Data stays in sensor memory until you press “Download all” in the Waiting list."
+    : "Each take is downloaded from the sensors right after it stops (slower, but files are ready immediately).";
+  $("#durNote").textContent = prefs.duration
+    ? `Recording stops automatically after ${prefs.duration} s. You can stop earlier with the Stop button.`
+    : "Recording continues until you press Stop. Sensor memory is limited, so very long recordings at high rates can fill it.";
+}
+function renderRecordStatic() {
+  const ready = S.sensors.filter(s => s.state === "connected" && s.selected);
+  const html = ready.map(s => `<span style="--c:${color(s.mac)}"><i class="dot"></i>${esc(s.label || "No label")}</span>`).join("");
+  const ws = html + prefs.movement + prefs.subject;
+  if (ws !== whoSig) { $("#who").innerHTML = html || `<span class="muted" style="border-style:dashed">Connect a sensor and tick “In recording”</span>`; whoSig = ws; }
+  const mv = S.movements.filter(m => m !== prefs.movement).slice(0, 6);
+  $("#moveChips").innerHTML = mv.map(m => `<button class="chip" data-v="${esc(m)}" style="--c:var(--blue)">${esc(m)}</button>`).join("");
+  let why = "";
+  if (!prefs.subject.trim()) why = "Enter a subject ID";
+  else if (!prefs.movement.trim()) why = "Enter an activity label";
+  else if (!prefs.use_acc && !prefs.use_gyro) why = "Select the accelerometer, the gyroscope, or both";
+  else if (!ready.length) why = "No connected sensors selected for recording";
+  $("#startBtn").disabled = !!why; $("#why").textContent = why;
+  if (!why) $("#why").textContent = ready.length > 1 ? `${ready.length} separate CSV files will be created, one per sensor` : "";
+}
+$("#startBtn").onclick = guard(async () => {
+  const settings = {}; for (const k of ["acc_odr","acc_range","gyro_odr","gyro_range"]) settings[k] = +$("#"+k).value;
+  await api("/api/record/start", "POST", { subject: prefs.subject.trim(), channels: { acc: prefs.use_acc, gyro: prefs.use_gyro }, meta_cols: prefs.meta_cols, movement: prefs.movement.trim(), duration: prefs.duration, countdown: prefs.countdown, transfer: prefs.transfer, settings });
+  await refresh();
+});
+const STATE_TXT = { idle:"Ready", configuring:"Configuring", ready:"Ready", stored:"Stored on sensor", recording:"Recording", stopping:"Stopping", downloading:"Downloading from sensor", saving:"Saving", done:"Saved", error:"Error" };
+
+function renderLive() {
+  const r = S.recording, box = $("#liveBox"), active = r.phase !== "idle";
+  $("#setup").hidden = active; box.hidden = !active;
+  const transferring = ["downloading", "saving"].includes(r.phase);
+  const rows = transferring ? [] : S.sensors.filter(s => r.macs.includes(s.mac));
+  const key = JSON.stringify([r.phase, rows.map(s => [s.mac, s.rec_state, s.progress, s.label, s.error])]);
+  const planned = r.planned;
+  let head = "";
+  if (r.phase === "countdown") head = `<div class="m cd">Get ready: “${esc(r.movement)}”</div><div class="t mono cd" id="lt">${Math.ceil(r.countdown_left)}</div>`;
+  else if (r.phase === "recording") head = `<div class="m"><span class="rd"></span>Recording: “${esc(r.movement)}”</div><div class="t mono" id="lt">${fmtT(r.elapsed)}</div>
+      ${planned ? `<div class="bar"><i id="lb" style="width:${Math.min(100, r.elapsed / planned * 100)}%"></i></div><div class="small" style="opacity:.7;margin-top:6px">of ${planned} s</div>` : `<div class="small" style="opacity:.7;margin-top:10px">No limit: stop manually</div>`}`;
+  else head = `<div class="m">“${esc(r.movement)}”</div><div class="t" style="font-size:34px">${{starting:"Starting sensors…",stopping:"Stopping…",downloading:"Downloading data from sensors…",saving:"Saving CSV files…"}[r.phase] || ""}</div>`;
+  if (key !== liveSig) {
+    liveSig = key;
+    box.innerHTML = `<div class="live">${head}<div style="margin-top:16px">${rows.map(s => `<div class="srow" style="--c:${color(s.mac)}"><i class="dot"></i><span class="n">${esc(s.label || s.mac)}</span>
+      <span class="st">${s.rec_state === "error" ? esc(s.error || "Error") : STATE_TXT[s.rec_state] || ""}</span></div>`).join("")}</div>
+      <div class="live-actions"><span class="small" style="opacity:.7">${r.phase === "countdown" ? "Recording has not started yet" : ""}</span>
+      ${["countdown","starting","recording"].includes(r.phase) ? `<button class="rec-btn stop-btn" id="stopBtn"><span class="o"></span>${r.phase === "recording" ? "Stop and save" : "Cancel"}</button>` : ""}</div></div>`;
+    const sb = $("#stopBtn"); if (sb) sb.onclick = guard(async () => { await api("/api/record/stop", "POST"); });
+  } else {
+    const lt = $("#lt");
+    if (lt) lt.textContent = r.phase === "countdown" ? Math.ceil(r.countdown_left) : fmtT(r.elapsed);
+    const lb = $("#lb"); if (lb && planned) lb.style.width = Math.min(100, r.elapsed / planned * 100) + "%";
+  }
+}
+
+/* ---------------- live preview ---------------- */
+const live = { acc: [], gyro: [], seq: 0, busy: false };
+const WINDOW = 10000, COLORS = ["#ff6b81", "#34d399", "#5b9bff"];
+function drawChart(cv, data, minScale, digits) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.documentElement), grid = css.getPropertyValue("--line").trim(), mut = css.getPropertyValue("--muted").trim();
+  const tNow = data.length ? data[data.length - 1][0] : 0, t0 = tNow - WINDOW;
+  let m = minScale;
+  for (const d of data) if (d[0] >= t0) m = Math.max(m, Math.abs(d[1]), Math.abs(d[2]), Math.abs(d[3]));
+  m = Math.max(m * 1.1, (cv._m || 0) * 0.985); cv._m = m;
+  c.lineWidth = 1; c.strokeStyle = grid; c.fillStyle = mut; c.font = "11px " + css.getPropertyValue("--num");
+  for (const f of [-1, -0.5, 0, 0.5, 1]) {
+    const y = h / 2 - f * (h / 2 - 8); c.globalAlpha = f === 0 ? 1 : .5;
+    c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); c.globalAlpha = 1;
+    if (f === 1 || f === 0 || f === -1) c.fillText((f * m).toFixed(digits), 4, y - 3);
+  }
+  for (let k = 0; k < 3; k++) {
+    c.strokeStyle = COLORS[k]; c.lineWidth = 1.6; c.beginPath(); let started = false;
+    for (const d of data) {
+      if (d[0] < t0) continue;
+      const x = (d[0] - t0) / WINDOW * w, y = h / 2 - d[k + 1] / m * (h / 2 - 8);
+      started ? c.lineTo(x, y) : (c.moveTo(x, y), started = true);
+    }
+    c.stroke();
+  }
+}
+function hz(data) {
+  if (data.length < 2) return 0;
+  const end = data[data.length - 1][0], n = data.filter(d => d[0] >= end - 2000).length;
+  return n / 2;
+}
+async function pollLive() {
+  if (live.busy) return; live.busy = true;
+  try {
+    const r = await api(`/api/live?after=${live.seq}`); live.seq = r.seq;
+    for (const [, kind, t, x, y, z] of r.samples) live[kind].push([t, x, y, z]);
+    for (const k of ["acc", "gyro"]) {
+      const a = live[k], end = a.length ? a[a.length - 1][0] : 0, i = a.findIndex(d => d[0] >= end - WINDOW - 500);
+      if (i > 0) a.splice(0, i);
+    }
+    const fmt = (a, d) => a.length ? ["x","y","z"].map((n, i) => `<span class="lg ${n}">${n} ${a[a.length-1][i+1].toFixed(d)}</span>`).join("  ") : "";
+    $("#lpAccVal").innerHTML = fmt(live.acc, 2); $("#lpGyroVal").innerHTML = fmt(live.gyro, 1);
+    drawChart($("#cAcc"), live.acc, 2, 1); drawChart($("#cGyro"), live.gyro, 100, 0);
+    const target = +$("#lpRate").value, ra = hz(live.acc), rg = hz(live.gyro);
+    $("#lpStat").textContent = `Measured rate: accelerometer ${ra ? ra.toFixed(0) : "off"} Hz, gyroscope ${rg ? rg.toFixed(0) : "off"} Hz (target ${target} Hz). ` +
+      ((ra && ra < target * .8) || (rg && rg < target * .8) ? "Bluetooth is dropping samples: lower the rate or move the sensor closer." : "");
+  } catch (e) {} finally { live.busy = false; }
+}
+function renderLivePanel() {
+  const conn = S.sensors.filter(s => s.state === "connected"), busy = S.recording.phase !== "idle", on = !!(S.live && S.live.mac);
+  const sig = JSON.stringify([conn.map(s => [s.mac, s.label]), busy, on, S.live && S.live.mac]);
+  if (sig !== lpSig) {
+    lpSig = sig;
+    const sel = $("#lpSensor"), cur = on ? S.live.mac : (sel.value || prefs.lpSensor);
+    sel.innerHTML = conn.length ? conn.map(s => `<option value="${s.mac}">${esc(s.label || s.mac)}</option>`).join("") : `<option value="">No connected sensors</option>`;
+    if (conn.some(s => s.mac === cur)) sel.value = cur;
+    sel.disabled = on || busy || !conn.length;
+    $("#lpRate").disabled = $("#lpAcc").disabled = $("#lpGyro").disabled = on || busy;
+    const b = $("#lpBtn"); b.textContent = on ? "Stop preview" : "Start preview"; b.className = "btn " + (on ? "" : "primary"); b.disabled = busy || !conn.length;
+    $("#lpCharts").hidden = !on;
+  }
+  if (on && !liveTimer) { live.acc = []; live.gyro = []; live.seq = 0; liveTimer = setInterval(pollLive, 100); }
+  if (!on && liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+}
+$("#lpSensor").onchange = e => { prefs.lpSensor = e.target.value; savePrefs(); };
+$("#lpBtn").onclick = guard(async () => {
+  if (S.live && S.live.mac) await api("/api/live/stop", "POST");
+  else {
+    const mac = $("#lpSensor").value; if (!mac) throw new Error("Connect a sensor first");
+    await api("/api/live/start", "POST", { mac, acc: $("#lpAcc").checked, gyro: $("#lpGyro").checked, rate: +$("#lpRate").value,
+      acc_range: +$("#acc_range").value, gyro_range: +$("#gyro_range").value });
+  }
+  await refresh();
+});
+
+/* ---------------- pending takes ---------------- */
+function renderPending() {
+  const p = S.pending || [], el = $("#pendingPanel"), phase = S.recording.phase;
+  const busy = phase !== "idle", transferring = ["downloading", "saving"].includes(phase);
+  const pendingMacs = new Set(p.flatMap(t => t.sensors.map(s => s.mac)));
+  const dl = transferring
+    ? S.sensors.filter(s => S.recording.macs.includes(s.mac))
+    : S.sensors.filter(s => pendingMacs.has(s.mac) && s.rec_state === "error");
+  el.hidden = !p.length && !transferring;
+  const key = JSON.stringify([p, phase, dl]); if (key === pendSig) return; pendSig = key;
+  if (el.hidden) { el.innerHTML = ""; return; }
+  const received = dl.filter(s => ["downloaded", "saving", "done"].includes(s.rec_state)).length;
+  el.innerHTML = `<div class="panel-h"><div><h2>Waiting on sensors</h2>
+      <div class="small muted">${p.length} take${p.length === 1 ? "" : "s"} awaiting export. Keep this app running until the CSV files are saved.</div></div>
+      <div style="display:flex;gap:8px"><button class="btn primary" data-p="download" ${busy ? "disabled" : ""}>Download all</button>
+      <button class="btn danger" data-p="discardAll" ${busy ? "disabled" : ""}>Discard all</button></div></div>
+    ${transferring || dl.length ? `<div style="margin-bottom:14px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:var(--soft)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px"><b>${phase === "saving" ? "Saving CSV files" : transferring ? "Downloading from sensors" : "Download issues"}</b>
+        ${transferring && dl.length ? `<span class="mono small">${received} of ${dl.length} sensors read</span>` : ""}</div>
+      ${transferring && !dl.length ? '<div class="pbar ind" role="progressbar" aria-label="Preparing download"><i></i></div>' : ""}
+      <div style="margin-top:8px">${dl.map(x => {
+        const name = x.label || x.mac, state = x.rec_state;
+        const done = ["downloaded", "saving", "done"].includes(state);
+        const pct = done ? 100 : Math.min(100, Math.round(x.progress * 100));
+        const waiting = state === "preparing" || (state === "downloading" && !x.dl_total);
+        const txt = {
+          preparing: `Waiting for sensor memory… ${x.dl_idle}s`,
+          downloading: x.dl_total
+            ? `${pct}% · ${Math.max(0, x.dl_total - x.dl_left).toLocaleString()} of ${x.dl_total.toLocaleString()} entries`
+            : x.dl_samples ? `Receiving data… ${x.dl_samples.toLocaleString()} samples` : `Waiting for data… ${x.dl_idle}s`,
+          downloaded: "Data received", saving: "Saving CSV…", done: "CSV saved", error: x.error || "Download failed"
+        }[state] || "Queued";
+        const cls = state === "error" ? "err" : waiting ? "ind" : done ? "done" : "";
+        return `<div class="dl-row" style="--c:${color(x.mac)}"><span class="fname"><i class="dot"></i><b>${esc(name)}</b></span>
+          <div class="pbar ${cls}" role="progressbar" aria-label="${esc(name)}" ${waiting ? "" : `aria-valuenow="${pct}"`}><i style="width:${pct}%"></i></div>
+          <span class="small ${state === "error" ? "" : "muted"}" ${state === "error" ? 'style="color:var(--rec)"' : ""}>${esc(txt)}</span></div>`; }).join("")}</div></div>` : ""}
+    ${p.map((t, i) => `<div class="frow" data-tid="${esc(t.id)}" style="${t.discard ? "opacity:.5" : ""}">
+      <div><b>Take ${i + 1}: ${esc(t.subject)} / ${esc(t.movement)}</b><div class="s-sub">${new Date(t.created).toLocaleTimeString("en-US")}${t.discard ? ", will be ignored" : ""}</div></div>
+      <div><span class="mono">${t.duration.toFixed(1)} s</span><div class="s-sub">duration</div></div>
+      <div class="who" style="margin:0">${t.sensors.map(x => `<span style="--c:${color(x.mac)}"><i class="dot"></i>${esc(x.label)}</span>`).join("")}</div>
+      <div class="acts"><button class="btn sm danger" data-p="discard" ${busy || t.discard ? "disabled" : ""}>Discard take</button></div></div>`).join("")}`;
+}
+$("#pendingPanel").addEventListener("click", guard(async e => {
+  const b = e.target.closest("[data-p]"); if (!b) return;
+  const a = b.dataset.p;
+  if (a === "download") await api("/api/pending/download", "POST");
+  else if (a === "discard") await api("/api/pending/discard", "POST", { id: b.closest("[data-tid]").dataset.tid });
+  else if (a === "discardAll" && confirm("Discard all waiting takes? Their data will be erased from the sensors.")) await api("/api/pending/discard", "POST", {});
+  await refresh();
+}));
+
+/* ---------------- recordings ---------------- */
+function renderRecs() {
+  const n = recs.reduce((a, m) => a + m.files.length, 0);
+  $("#listCount").textContent = n ? `${n} CSV in ${recs.length} recording${recs.length === 1 ? "" : "s"}` : "";
+  $("#zipAll").disabled = !n;
+  if (!recs.length) { $("#recList").innerHTML = `<div class="empty">Your recordings will appear here.<br>Connect sensors, enter a movement and press “Start recording”.</div>`; return; }
+  $("#recList").innerHTML = recs.map(m => {
+    const st = m.settings, d = new Date(m.created);
+    const dur = Math.max(0, ...m.files.map(f => f.duration_s));
+    return `<article class="session" data-sid="${esc(m.id)}">
+      <div class="s-head"><div><h3>${esc(m.movement)}</h3>
+        <div class="tags">${m.subject_id ? `<span class="tag" style="color:var(--ink)">Subject ${esc(m.subject_id)}</span>` : ""}<span class="tag">${d.toLocaleString("en-US", { dateStyle:"medium", timeStyle:"medium" })}</span>
+          ${st.use_acc !== false ? `<span class="tag">Acc ${st.acc_odr} Hz, ±${st.acc_range} g</span>` : ""}${st.use_gyro !== false ? `<span class="tag">Gyro ${st.gyro_odr} Hz, ±${st.gyro_range} °/s</span>` : ""}</div></div>
+        <div class="acts"><button class="btn sm" data-a="zip">Download ZIP</button><button class="btn sm danger" data-a="delSession">Delete recording</button></div></div>
+      ${m.files.map(f => `<div class="frow" data-f="${esc(f.file)}" style="--c:${color(f.mac)}">
+        <div class="fname"><i class="dot"></i><div style="min-width:0"><b>${esc(f.sensor_label)}</b><div class="s-sub mono">${f.mac}</div></div></div>
+        <div><span class="mono">${f.duration_s.toFixed(1)} s</span><div class="s-sub">duration</div></div>
+        <div><span class="mono">${f.rows.toLocaleString("en-US")}</span><div class="s-sub">rows, ${fmtSize(f.size)}</div></div>
+        <div class="acts"><button class="btn sm" data-a="dl">Download CSV</button><button class="btn sm danger" data-a="del">Delete</button></div></div>`).join("")}
+    </article>`;
+  }).join("");
+}
+$("#recList").addEventListener("click", guard(async e => {
+  const b = e.target.closest("[data-a]"); if (!b) return;
+  const sid = b.closest("[data-sid]").dataset.sid, f = b.closest("[data-f]")?.dataset.f, a = b.dataset.a;
+  if (a === "dl") location.href = `/api/recordings/${encodeURIComponent(sid)}/${encodeURIComponent(f)}`;
+  else if (a === "zip") location.href = `/api/zip/${encodeURIComponent(sid)}`;
+  else if (a === "del" && confirm(`Delete file “${f}”?`)) { await api(`/api/recordings/${encodeURIComponent(sid)}/${encodeURIComponent(f)}`, "DELETE"); await loadRecs(); }
+  else if (a === "delSession" && confirm("Delete this whole recording with all its CSV files?")) { await api(`/api/recordings/${encodeURIComponent(sid)}`, "DELETE"); await loadRecs(); }
+}));
+$("#zipAll").onclick = () => location.href = "/api/zip";
+async function loadRecs() { recs = await api("/api/recordings"); renderRecs(); }
+
+/* ---------------- refresh loop ---------------- */
+function renderHeader() {
+  const c = S.sensors.filter(s => s.state === "connected").length;
+  $("#hstat").innerHTML = `<span class="pill ${c ? "ok" : ""}">${c} of ${S.sensors.length} connected</span>` +
+    (S.scan.active ? `<span class="pill blue"><span class="spin"></span>Scanning…</span>` : "") +
+    ((S.pending || []).length ? `<span class="pill warn">${S.pending.length} take${S.pending.length === 1 ? "" : "s"} waiting</span>` : "") +
+    (S.recording.phase !== "idle" ? `<span class="pill err">${{downloading:"Downloading",saving:"Saving"}[S.recording.phase] || "Recording"}</span>` : "");
+  const sb = $("#scanBtn"); sb.disabled = S.scan.active || S.recording.phase !== "idle"; sb.textContent = S.scan.active ? "Scanning…" : "Find sensors";
+}
+async function refresh() {
+  const first = !S;
+  S = await api("/api/state");
+  if (first) { initSetup(); await loadRecs(); lastNoticeId = S.notice.id; }
+  const s = JSON.stringify([S.sensors, S.recording.phase]);
+  if (s !== sig) { sig = s; renderSensors(); }
+  renderHeader(); renderRecordStatic(); renderLive(); renderPending(); renderLivePanel();
+  if (S.notice.id !== lastNoticeId) { lastNoticeId = S.notice.id; toast(S.notice.text, S.notice.level); await loadRecs(); }
+  if (S.scan.error && S.scan.error !== lastScanErr) toast(S.scan.error, "err");
+  lastScanErr = S.scan.error;
+  lastPhase = S.recording.phase;
+}
+(async function loop() { try { await refresh(); } catch (e) { $("#hstat").innerHTML = `<span class="pill err">Cannot reach the server</span>`; } setTimeout(loop, 450); })();
+</script>
+</body>
+</html>

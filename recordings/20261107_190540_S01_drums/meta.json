@@ -1,0 +1,36 @@
+{
+  "id": "20261107_190540_S01_drums",
+  "subject_id": "S01",
+  "movement": "drums",
+  "created": "2026-11-07T19:05:45",
+  "planned_s": 10.0,
+  "host_duration_s": 10.01,
+  "settings": {
+    "acc_odr": 100,
+    "acc_range": 8,
+    "gyro_odr": 100,
+    "gyro_range": 2000,
+    "use_acc": true,
+    "use_gyro": true
+  },
+  "files": [
+    {
+      "file": "S01__drums__Left_arm__24BD.csv",
+      "sensor_label": "Left arm",
+      "mac": "D2:AB:29:51:24:BD",
+      "duration_s": 9.66,
+      "samples_acc": 965,
+      "samples_gyro": 960,
+      "rows": 965
+    },
+    {
+      "file": "S01__drums__Right_arm__9A15.csv",
+      "sensor_label": "Right arm",
+      "mac": "DD:4D:77:40:9A:15",
+      "duration_s": 9.61,
+      "samples_acc": 964,
+      "samples_gyro": 958,
+      "rows": 964
+    }
+  ]
+}
